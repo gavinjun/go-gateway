@@ -5,10 +5,10 @@ import (
 	"net/http/httputil"
 )
 
-var defaultProxy *httputil.ReverseProxy
+var DefaultProxy *httputil.ReverseProxy
 
 func init() {
-	defaultProxy = NewDefaultReverseProxy()
+	DefaultProxy = NewDefaultReverseProxy()
 }
 
 func NewDefaultReverseProxy() *httputil.ReverseProxy {

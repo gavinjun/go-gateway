@@ -6,6 +6,30 @@ import (
 	"time"
 )
 
+type EnumPredicae int
+const (
+	PATH EnumPredicae = iota + 1
+	WEIGHT
+)
+
+func PredicateToString(predicate EnumPredicae) string {
+	str := ""
+	switch predicate {
+		case PATH:str = "path";
+		case WEIGHT:str = "weight";
+	}
+	return str
+}
+
+func StringToPredicate(s string) EnumPredicae {
+	var c EnumPredicae = 0
+	switch s {
+	case "path" : c = PATH
+	case "weight": c = WEIGHT
+	}
+	return c
+}
+
 // 谓词
 type Predicate interface {
 	Test(req *http.Request) bool
@@ -29,12 +53,14 @@ type Predicate interface {
  */
 
 type PredicateConfig struct {
+	PredicateType EnumPredicae
 	Id string // 路由id
 	DateTime time.Time // date1 日期 进行大于 小于判断
 	DateTime2 time.Time // date2 日期 between 时候才需要 表示2个日期之前
 	WeightGroup string // 权重分组分组名
 	WeightGroupIndex int // 在同组内的index
 	WeightRanges []float64 //权重分组区域
+	PathRegPattern string //路径匹配
 }
 
 type PredicateFunc func(req *http.Request) bool
@@ -48,5 +74,7 @@ type WarpPredicateFunc func(req *http.Request, config PredicateConfig, ctx conte
 
 // 谓词判断后执行 一般做些日志操作
 type PredicateAfterFunc func(predicateTestRs bool)
+
+
 
 

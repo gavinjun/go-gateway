@@ -2,9 +2,10 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"go-gateway/pkg/httpgateway/autoconfig"
-	_ "go-gateway/pkg/httpgateway/autoconfig"
 	"go-gateway/pkg/httpgateway/predicatefactory"
+	"go-gateway/pkg/httpgateway/proxy"
 	"math/rand"
 	"net/http"
 	"time"
@@ -12,41 +13,39 @@ import (
 
 
 func sayHello(w http.ResponseWriter, r *http.Request) {
-	//proxy.ServeHTTP(w, r)
+	// 配置
+	gateWayConfig := autoconfig.ConfigParse()
+	predicateConfig, bizRoutes := autoconfig.PredicatesParse(gateWayConfig)
+	ctx := context.Background()
+	ctx = context.WithValue(ctx, predicatefactory.WeightRandomKey, rand.New(rand.NewSource(time.Now().UnixNano())).Float64())
+	hitsRoute := make([]autoconfig.BizRoute, 0)
+	for key, predicateCfgs := range predicateConfig {
+		var pass = true
+		for _, predicateCfg := range predicateCfgs {
+			if fn, ok := predicatefactory.SupportPredicateFunc[predicateCfg.PredicateType]; ok {
+				rs := fn(r, predicateCfg, ctx)(r)
+				if !rs {
+					pass = false
+					break
+				}
+			}
+		}
+		if pass {
+			hitsRoute = append(hitsRoute, bizRoutes[key])
+		}
+	}
+	fmt.Println(hitsRoute)
+	proxy.DefaultProxy.ServeHTTP(w, r)
 }
 /**
-var index http.HandlerFunc = sayHello
+
+ */
+
+func main() {
+	var index http.HandlerFunc = sayHello
 	err := http.ListenAndServe("127.0.0.1:9000", index)
 	if err != nil {
 		fmt.Printf("http.ListenAndServe()函数执行错误,错误为:%v\n", err)
 		return
 	}
- */
-
-func main() {
-	// 配置
-	gateWayConfig := autoconfig.ConfigParse()
-
-	predicateConfig, _ := autoconfig.PredicatesParse(gateWayConfig)
-
-	ctx := context.Background()
-	ctx = context.WithValue(ctx, predicatefactory.WeightRandomKey, rand.New(rand.NewSource(time.Now().UnixNano())).Float64())
-
-	for key, predicateCfgs := range predicateConfig {
-		if key == "weight" {
-			for _, cfg := range predicateCfgs {
-				predicatefactory.WeightRoute(nil, cfg, ctx)(nil)
-			}
-		}
-	}
-
-	//config := httpgateway.PredicateConfig{
-	//}
-	//config.Id = "routeTest"
-	//config.DateTime, _ = time.ParseInLocation("2006-01-02 15:04:05", "2021-01-06 16:20:00", time.Local)
-	//config.WeightGroup = "group3"
-	//config.WeightGroupIndex = 0
-	//config.WeightRanges = []float64{0, 0.3, 0.9, 1.0}
-	//
-	//fmt.Println(predicatefactory.WeightRoute(nil, config, ctx)(nil))
 }

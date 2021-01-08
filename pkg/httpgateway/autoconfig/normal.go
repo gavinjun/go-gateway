@@ -68,6 +68,11 @@ var demoConfigStr = `{
 							"group": "s1",
 							"value": "30"
 						}
+					},{
+						"name": "Path",
+						"args": {
+							"value": "/index.php"
+						}
 					}],
 					"filters": [{
 							"name": "AddRequestHeader",
@@ -92,6 +97,11 @@ var demoConfigStr = `{
 						"args": {
 							"group": "s1",
 							"value": "20"
+						}
+					},{
+						"name": "Path",
+						"args": {
+							"value": "/index.php"
 						}
 					}],
 					"filters": [{
@@ -147,8 +157,8 @@ type predicateName = string
 type weightGroup = string
 type weightGroupVal = int // group1 => routeId,value ps: weightGroup: 30
 
-func PredicatesParse(gateWayConfig *GateWayConfig) (map[predicateName][]httpgateway.PredicateConfig, map[routeId]BizRoute) {
-	var predicateConfigMap = make(map[predicateName][]httpgateway.PredicateConfig)
+func PredicatesParse(gateWayConfig *GateWayConfig) (map[routeId][]httpgateway.PredicateConfig, map[routeId]BizRoute) {
+	var predicateConfigMap = make(map[routeId][]httpgateway.PredicateConfig)
 	// 全局的配置
 	var routeGlobMap = make(map[routeId]BizRoute)
 	// 权重路由暂存
@@ -167,9 +177,10 @@ func PredicatesParse(gateWayConfig *GateWayConfig) (map[predicateName][]httpgate
 			for _, predicate := range route.Predicates {
 				predicateName := strings.ToLower(predicate.Name)
 				routeCfg := httpgateway.PredicateConfig{
+					PredicateType:httpgateway.StringToPredicate(predicateName),
 					Id: route.Id,
 				}
-				if string_util.StrCompareIgnoreLowerOrUpper(predicateName, "weight") {
+				if string_util.StrCompareIgnoreLowerOrUpper(predicateName, httpgateway.PredicateToString(httpgateway.WEIGHT)) {
 					// 权重路由
 					var group string
 					var value string
@@ -194,11 +205,25 @@ func PredicatesParse(gateWayConfig *GateWayConfig) (map[predicateName][]httpgate
 						routeCfg.WeightGroupIndex = weightGroupIndex
 					}
 
-					if _, ok := predicateConfigMap[predicateName]; !ok {
-						predicateConfigMap[predicateName] = []httpgateway.PredicateConfig{}
-					}
-					predicateConfigMap[predicateName] = append(predicateConfigMap[predicateName], routeCfg)
+					//if _, ok := predicateConfigMap[predicateName]; !ok {
+					//	predicateConfigMap[predicateName] = []httpgateway.PredicateConfig{}
+					//}
+					//predicateConfigMap[predicateName] = append(predicateConfigMap[predicateName], routeCfg)
 				}
+				if string_util.StrCompareIgnoreLowerOrUpper(predicateName, httpgateway.PredicateToString(httpgateway.PATH)) {
+					// 权重路由
+					var value string
+					if _, ok := predicate.Args["value"]; ok {
+						value = predicate.Args["value"]
+					}
+					if value != "" {
+						routeCfg.PathRegPattern = value
+					}
+				}
+				if _, ok := predicateConfigMap[route.Id]; !ok {
+					predicateConfigMap[route.Id] = []httpgateway.PredicateConfig{}
+				}
+				predicateConfigMap[route.Id] = append(predicateConfigMap[route.Id], routeCfg)
 			}
 		}
 	}
@@ -231,9 +256,11 @@ func PredicatesParse(gateWayConfig *GateWayConfig) (map[predicateName][]httpgate
 		}
 		weightGroupValuesMap[weightGroupName] = ranges
 	}
-	if _, ok := predicateConfigMap["weight"]; ok {
-		for k, vv := range predicateConfigMap["weight"] {
-			predicateConfigMap["weight"][k].WeightRanges = weightGroupValuesMap[vv.WeightGroup]
+	for k, v := range predicateConfigMap {
+		for kk, vv := range v {
+			if _, ok := weightGroupValuesMap[vv.WeightGroup]; ok {
+				predicateConfigMap[k][kk].WeightRanges = weightGroupValuesMap[vv.WeightGroup]
+			}
 		}
 	}
 	return predicateConfigMap, routeGlobMap
