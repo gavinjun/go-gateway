@@ -61,7 +61,7 @@ var demoConfigStr = `{
 				},
 				"routes": [{
 					"id": "activity-route",
-					"uri": "lb://activity",
+					"uri": "www.baidu.com",
 					"predicates": [{
 						"name": "Weight",
 						"args": {
@@ -91,7 +91,7 @@ var demoConfigStr = `{
 					]
 				}, {
 					"id": "activity-route-2",
-					"uri": "lb://activity1",
+					"uri": "www.baidu.com",
 					"predicates": [{
 						"name": "Weight",
 						"args": {
