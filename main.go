@@ -9,7 +9,6 @@ import (
 
 
 func sayHello(w http.ResponseWriter, r *http.Request) {
-	autoconfig.GateWaycfgInstance.Init()
 	proxy.DefaultProxy.ServeHTTP(w, r)
 }
 /**
@@ -17,6 +16,7 @@ func sayHello(w http.ResponseWriter, r *http.Request) {
  */
 
 func main() {
+	autoconfig.GateWaycfgInstance.Init()
 	var index http.HandlerFunc = sayHello
 	err := http.ListenAndServe("127.0.0.1:9000", index)
 	if err != nil {
