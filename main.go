@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"go-gateway/pkg/httpgateway/autoconfig"
 	"go-gateway/pkg/httpgateway/proxy"
 	"net/http"
 )
 
 
 func sayHello(w http.ResponseWriter, r *http.Request) {
+	autoconfig.GateWaycfgInstance.Init()
 	proxy.DefaultProxy.ServeHTTP(w, r)
 }
 /**

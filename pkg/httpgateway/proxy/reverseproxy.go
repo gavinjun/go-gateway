@@ -3,11 +3,14 @@ package proxy
 import (
 	"context"
 	"fmt"
+	"github.com/pkg/errors"
+	"go-gateway/pkg/httpgateway"
 	"go-gateway/pkg/httpgateway/autoconfig"
 	"go-gateway/pkg/httpgateway/predicatefactory"
 	"math/rand"
 	"net/http"
 	"net/http/httputil"
+	"strings"
 	"time"
 )
 
@@ -24,12 +27,10 @@ func NewDefaultReverseProxy() *httputil.ReverseProxy {
 			req.Header.Set("User-Agent", "")
 		}
 		// 配置
-		gateWayConfig := autoconfig.ConfigParse()
-		predicateConfig, bizRoutes := autoconfig.PredicatesParse(gateWayConfig)
 		ctx := context.Background()
 		ctx = context.WithValue(ctx, predicatefactory.WeightRandomKey, rand.New(rand.NewSource(time.Now().UnixNano())).Float64())
 		hitsRoute := make([]autoconfig.BizRoute, 0)
-		for key, predicateCfgs := range predicateConfig {
+		for key, predicateCfgs := range autoconfig.PredicateConfig {
 			var pass = true
 			for _, predicateCfg := range predicateCfgs {
 				if fn, ok := predicatefactory.SupportPredicateFunc[predicateCfg.PredicateType]; ok {
@@ -41,15 +42,20 @@ func NewDefaultReverseProxy() *httputil.ReverseProxy {
 				}
 			}
 			if pass {
-				hitsRoute = append(hitsRoute, bizRoutes[key])
+				hitsRoute = append(hitsRoute, autoconfig.BizRoutes[key])
 			}
 		}
-		fmt.Println(hitsRoute)
+		httpgateway.GetLogger().Debug(fmt.Sprintf("hitsRoute:%#v", hitsRoute))
 		hits := len(hitsRoute)
 		if hits == 1{
-			req.URL.Scheme = "http"
-			req.URL.Host = hitsRoute[0].Uri
-			req.Host = ""
+			scheme, host, err := UriParse(hitsRoute[0].Uri)
+			if err != nil {
+				req.URL.Host = ""
+			} else {
+				req.URL.Scheme = scheme
+				req.URL.Host = host
+				req.Host = ""
+			}
 		} else if hits == 0 {
 			// default
 			req.URL.Host = ""
@@ -60,6 +66,21 @@ func NewDefaultReverseProxy() *httputil.ReverseProxy {
 
 	}
 	return &httputil.ReverseProxy{Director: director}
+}
+
+func UriParse(uri string) (scheme string, host string, err error) {
+	if uri != "" {
+		splictRs := strings.Split(uri, "://")
+		if len(splictRs) == 2 {
+			scheme = splictRs[0]
+			host = splictRs[1]
+		} else {
+			err = errors.New("uri parse, uri was empty string")
+		}
+	} else {
+		err = errors.New("uri parse, uri was empty string")
+	}
+	return
 }
 
 

@@ -2,6 +2,8 @@ package autoconfig
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/pkg/errors"
 	"go-gateway/pkg/httpgateway"
 	"go-gateway/pkg/string_util"
 	"strconv"
@@ -36,87 +38,6 @@ type GateWayConfig struct {
 	Routes []Route
 }
 
-// 标准的配置文件示例
-var demoConfigStr = `{
-	"spring": {
-		"application": {
-			"name": "xxxx"
-		},
-		"cloud": {
-			"consul": {
-				"host": "localhost",
-				"port": 8500,
-				"discovery": {
-					"enabled": true,
-					"instance-id": "",
-					"service-name": "xxxx",
-					"prefer-ip-address": true
-				}
-			},
-			"gateway": {
-				"discovery": {
-					"locator": {
-						"enabled": true
-					}
-				},
-				"routes": [{
-					"id": "activity-route",
-					"uri": "www.baidu.com",
-					"predicates": [{
-						"name": "Weight",
-						"args": {
-							"group": "s1",
-							"value": "30"
-						}
-					},{
-						"name": "Path",
-						"args": {
-							"value": "/index.php"
-						}
-					}],
-					"filters": [{
-							"name": "AddRequestHeader",
-							"args": {
-								"name": "'foo'",
-								"value": "'bar'"
-							}
-						},
-						{
-							"name": "RewritePath",
-							"args": {
-								"regexp": "'/' + serviceId + '/(?<remaining>.*)'",
-								"replacement": "'/${remaining}'"
-							}
-						}
-					]
-				}, {
-					"id": "activity-route-2",
-					"uri": "www.baidu.com",
-					"predicates": [{
-						"name": "Weight",
-						"args": {
-							"group": "s1",
-							"value": "20"
-						}
-					},{
-						"name": "Path",
-						"args": {
-							"value": "/index.php"
-						}
-					}],
-					"filters": [{
-						"name": "AddRequestHeader",
-						"args": {
-							"name": "'foo'",
-							"value": "'bar'"
-						}
-					}]
-				}]
-			}
-		}
-	}
-}`
-
 /**
   配置的形态
  */
@@ -126,9 +47,9 @@ type BizRoute struct {
 	Filters []Filter
 }
 
-func ConfigParse() *GateWayConfig {
+func ConfigParse(ConfigStr string) *GateWayConfig {
 	config := make(cmap)
-	json.Unmarshal([]byte(demoConfigStr), &config)
+	json.Unmarshal([]byte(ConfigStr), &config)
 	//剥离掉前缀spring.cloud.gateway.discovery.locator
 	prefixSlice := strings.Split("spring.cloud.gateway", ".")
 	for i:=0; i < len(prefixSlice); i++ {
@@ -145,7 +66,6 @@ func ConfigParse() *GateWayConfig {
 		}
 		continue
 	}
-
 	locator ,_ := json.Marshal(config)
 	gateWayConfig := GateWayConfig{}
 	json.Unmarshal(locator, &gateWayConfig)
@@ -153,11 +73,10 @@ func ConfigParse() *GateWayConfig {
 }
 
 type routeId = string
-type predicateName = string
 type weightGroup = string
 type weightGroupVal = int // group1 => routeId,value ps: weightGroup: 30
 
-func PredicatesParse(gateWayConfig *GateWayConfig) (map[routeId][]httpgateway.PredicateConfig, map[routeId]BizRoute) {
+func PredicatesParse(gateWayConfig *GateWayConfig) (map[routeId][]httpgateway.PredicateConfig, map[routeId]BizRoute, error) {
 	var predicateConfigMap = make(map[routeId][]httpgateway.PredicateConfig)
 	// 全局的配置
 	var routeGlobMap = make(map[routeId]BizRoute)
@@ -241,6 +160,7 @@ func PredicatesParse(gateWayConfig *GateWayConfig) (map[routeId][]httpgateway.Pr
 		}
 		if total > maxWeight {
 			// 有异常
+			return nil, nil, errors.New(fmt.Sprintf("%s total more than %d", weightGroupName, maxWeight))
 		}
 		defaultWeight := maxWeight - total
 		for key, value := range weights {
@@ -263,6 +183,6 @@ func PredicatesParse(gateWayConfig *GateWayConfig) (map[routeId][]httpgateway.Pr
 			}
 		}
 	}
-	return predicateConfigMap, routeGlobMap
+	return predicateConfigMap, routeGlobMap, nil
 }
 
