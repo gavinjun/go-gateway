@@ -27,7 +27,7 @@ var GateWayC = `{
 				},
 				"routes": [{
 					"id": "activity-route",
-					"uri": "https://www.baidu.com",
+					"uri": "http://www.baidu.com",
 					"predicates": [{
 						"name": "Weight",
 						"args": {
@@ -57,7 +57,7 @@ var GateWayC = `{
 					]
 				}, {
 					"id": "activity-route-2",
-					"uri": "https://www.baidu.com",
+					"uri": "http://www.baidu.com",
 					"predicates": [{
 						"name": "Weight",
 						"args": {
